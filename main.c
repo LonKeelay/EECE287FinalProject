@@ -18,7 +18,6 @@
 #define Slow 0
 #define Medium 1
 #define Fast 2
-
 /*
 movement: 0=CW, 1=CCW, 2=F, 3=R
 speed: 0=S, 1=M, 2=F
