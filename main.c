@@ -11,16 +11,16 @@
 #define btn_c (~(PINB) & (1<<5))
 
 //Definitions for movement parameters
-#define Clockwise 0
-#define CounterClockwise 1
-#define Forward 2
-#define Reverse 3
-#define Slow 0
-#define Medium 1
-#define Fast 2
+#define Clockwise 1
+#define CounterClockwise 2
+#define Forward 3
+#define Reverse 4
+#define Slow 1
+#define Medium 2
+#define Fast 3
 /*
-movement: 0=CW, 1=CCW, 2=F, 3=R
-speed: 0=S, 1=M, 2=F
+movement: 1=CW, 2=CCW, 3=F, 4=R
+speed: 1=S, 2=M, 3=F
 time: the int is in units of 1/10 s
 commands: Amount of commands set
 */
@@ -121,10 +121,80 @@ void waitForNoInput(){
 
 void direcMenu(uint8_t i){
 	waitForNoInput();
+	uint8_t chosen = 0;
+
+	int menuIndex = 0;
+	char menuItems[4][8] = {"   CW   ", "  CCW   ", "   FW   ", "  REV   "};
+	char arrowUI[] = "<  --  >";
+
+	while(!chosen){
+		waitForNoInput();
+		LCD_execute_command(CLEAR_DISPLAY);
+		LCD_execute_command(MOVE_CURSOR_HOME);
+		LCD_print_String(menuItems[menuIndex]);
+		LCD_move_cursor_to_col_row(0,1);
+		LCD_print_String(arrowUI);
+
+		switch(get_input()){
+			case 1: // Left
+				if(menuIndex == 0){
+					menuIndex = 3;
+				}else{
+					menuIndex--;
+				}
+				break;
+			case 3: // Right
+				if(menuIndex == 3){
+					menuIndex = 0;
+				}else{
+					menuIndex++;
+				}
+				break;
+			case 2:
+				chosen = 1;
+		}
+	}
+
+	movement[i] = menuIndex + 1; //Index is offset by 1 due to 0 meaning no command
 }
 
 void speedMenu(uint8_t i){
 	waitForNoInput();
+	uint8_t chosen = 0;
+
+	int menuIndex = 0;
+	char menuItems[3][8] = {"  SLOW  ", " MEDIUM ", "  FAST  "};
+	char arrowUI[] = "<  --  >";
+
+	while(!chosen){
+		waitForNoInput();
+		LCD_execute_command(CLEAR_DISPLAY);
+		LCD_execute_command(MOVE_CURSOR_HOME);
+		LCD_print_String(menuItems[menuIndex]);
+		LCD_move_cursor_to_col_row(0,1);
+		LCD_print_String(arrowUI);
+
+		switch(get_input()){
+			case 1: // Left
+				if(menuIndex == 0){
+					menuIndex = 2;
+				}else{
+					menuIndex--;
+				}
+				break;
+			case 3: // Right
+				if(menuIndex == 2){
+					menuIndex = 0;
+				}else{
+					menuIndex++;
+				}
+				break;
+			case 2:
+				chosen = 1;
+		}
+	}
+
+	speed[i] = menuIndex + 1; //Index is offset by 1 due to 0 meaning no command
 }
 
 void timeMenu(uint8_t i){
@@ -143,6 +213,14 @@ void create_comm(){
 	uint8_t instCreated = 0;
 	uint8_t finUI = 0;
 
+	// Erase all residual commands
+	for(int i = 0; i < 4; i++){
+		movement[i] = 0;
+		speed[i] = 0;
+		time[i] = 0;
+	}
+
+	//Initialize variables used for UI
 	int commIndex = 0;
 	char commElements[4][8] = {" DIREC  ", " SPEED  ", "  TIME  ", "   GO   "};
 	char arrowUI[] = "<  --  >"; // Fancy bottom arrows
