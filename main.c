@@ -237,9 +237,45 @@ void timeMenu(uint8_t i){
 
 	time[i] = tim;
 }
-
+/*
+	@returns 0 to continue looping, 1 to stop loop
+*/
 uint8_t goMenu(){
 	waitForNoInput();
+	LCD_execute_command(CLEAR_DISPLAY);
+	LCD_execute_command(MOVE_CURSOR_HOME);
+	//Check if all commands are filled
+	if(movement[commands] == 0 || speed[commands] == 0 || time[commands] == 0){
+		LCD_print_String("COMMAND");
+		LCD_move_cursor_to_col_row(0,1);
+		LCD_print_String("NOT SET");
+		get_input();
+		return 0;
+	}
+	// Ask user if they would like to add another command
+	LCD_print_String("ADD COM?");
+	LCD_move_cursor_to_col_row(0,1);
+	LCD_print_String("< NO YES");
+	switch(get_input()){
+		case 0:
+			return 0;
+			break;
+		case 1:
+			if(commands == 3){
+				LCD_execute_command(CLEAR_DISPLAY);
+				LCD_execute_command(MOVE_CURSOR_HOME);
+				LCD_print_String("CANT MAKE 5 COMS");
+				get_input();
+				commands++;
+				return 1;
+			}
+			commands++;
+			return 0;
+			break;
+		case 2:
+			commands++;
+			return 1;
+	}
 	return 0;
 }
 
@@ -247,7 +283,6 @@ uint8_t goMenu(){
 	Creates a UI to set the arrays of movement, speed, and time
 */
 void create_comm(){
-	uint8_t instCreated = 0;
 	uint8_t finUI = 0;
 
 	// Erase all residual commands
@@ -290,13 +325,13 @@ void create_comm(){
 			case 1: // Center
 				switch(commIndex){
 					case 0:
-						direcMenu(instCreated);
+						direcMenu(commands);
 						break;
 					case 1:
-						speedMenu(instCreated);
+						speedMenu(commands);
 						break;
 					case 2:
-						timeMenu(instCreated);
+						timeMenu(commands);
 						break;
 					case 3:
 						if (goMenu()){ // 0 is continue
@@ -305,15 +340,16 @@ void create_comm(){
 				}
 		}
 	}
-
-	commands = instCreated;
 }
 
 int main(){
 
 	init_buttons();
 	init_LCD();
-	create_comm();
+	while (1)
+	{
+		create_comm();
+	}
 
 	return 0;
 }
