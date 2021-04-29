@@ -123,7 +123,9 @@ void direcMenu(uint8_t i){
 	waitForNoInput();
 	uint8_t chosen = 0;
 
-	int menuIndex = 0;
+	int menuIndex;
+	if(movement[i] == 0){menuIndex = 0;}
+	else{menuIndex = movement[i] - 1;}
 	char menuItems[4][8] = {"   CW   ", "  CCW   ", "   FW   ", "  REV   "};
 	char arrowUI[] = "<  --  >";
 
@@ -163,7 +165,10 @@ void speedMenu(uint8_t i){
 	waitForNoInput();
 	uint8_t chosen = 0;
 
-	int menuIndex = 0;
+	int menuIndex;
+	if (speed[i] == 0){menuIndex = 0;}
+	else{menuIndex = speed[i] - 1;}
+
 	char menuItems[3][8] = {"  SLOW  ", " MEDIUM ", "  FAST  "};
 	char arrowUI[] = "<  --  >";
 
@@ -203,7 +208,7 @@ void timeMenu(uint8_t i){
 	LCD_execute_command(CLEAR_DISPLAY);
 	LCD_execute_command(MOVE_CURSOR_HOME);
 	//Have to reinvent the wheel for this, as there is nothing in the given library to print a decimal value
-	uint8_t tim = 0; // Highest duration is 25.5 seconds, though why would you subject yourself to such torture
+	uint8_t tim = time[i]; // Highest duration is 25.5 seconds, though why would you subject yourself to such torture
 
 	uint8_t seld = 0;
 	while(!seld){
