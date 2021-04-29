@@ -26,7 +26,7 @@ commands: Amount of commands set
 */
 uint8_t movement[4];
 uint8_t speed[4];
-uint16_t time[4];
+uint8_t time[4];
 uint8_t commands;
 
 /*
@@ -136,22 +136,23 @@ void direcMenu(uint8_t i){
 		LCD_print_String(arrowUI);
 
 		switch(get_input()){
-			case 1: // Left
+			case 0: // Left
 				if(menuIndex == 0){
 					menuIndex = 3;
 				}else{
 					menuIndex--;
 				}
 				break;
-			case 3: // Right
+			case 2: // Right
 				if(menuIndex == 3){
 					menuIndex = 0;
 				}else{
 					menuIndex++;
 				}
 				break;
-			case 2:
+			case 1:
 				chosen = 1;
+				break;
 		}
 	}
 
@@ -175,21 +176,21 @@ void speedMenu(uint8_t i){
 		LCD_print_String(arrowUI);
 
 		switch(get_input()){
-			case 1: // Left
+			case 0: // Left
 				if(menuIndex == 0){
 					menuIndex = 2;
 				}else{
 					menuIndex--;
 				}
 				break;
-			case 3: // Right
+			case 2: // Right
 				if(menuIndex == 2){
 					menuIndex = 0;
 				}else{
 					menuIndex++;
 				}
 				break;
-			case 2:
+			case 1:
 				chosen = 1;
 		}
 	}
@@ -199,6 +200,37 @@ void speedMenu(uint8_t i){
 
 void timeMenu(uint8_t i){
 	waitForNoInput();
+	LCD_execute_command(CLEAR_DISPLAY);
+	LCD_execute_command(MOVE_CURSOR_HOME);
+	//Have to reinvent the wheel for this, as there is nothing in the given library to print a decimal value
+	uint8_t tim = 0; // Highest duration is 25.5 seconds, though why would you subject yourself to such torture
+
+	uint8_t seld = 0;
+	while(!seld){
+		//Format of number on top LCD would be ' xy.z s '
+		LCD_move_cursor_to_col_row(1, 0);
+		LCD_print_hex4(tim/100);
+		LCD_print_hex4((tim%100)/10);
+		LCD_print_String(".");
+		LCD_print_hex4(tim%10);
+		LCD_move_cursor_to_col_row(6, 0);
+		LCD_print_String("s");
+		LCD_move_cursor_to_col_row(0, 1);
+		LCD_print_String("<  --  >");
+		switch(get_input()){
+			case 0: // Left
+				tim--;
+				break;
+			case 2: // Right
+				tim++;
+				break;
+			case 1: // Center
+				seld = 1;
+		}
+		waitForNoInput();
+	}
+
+	time[i] = tim;
 }
 
 uint8_t goMenu(){
@@ -214,6 +246,7 @@ void create_comm(){
 	uint8_t finUI = 0;
 
 	// Erase all residual commands
+	commands = 0;
 	for(int i = 0; i < 4; i++){
 		movement[i] = 0;
 		speed[i] = 0;
