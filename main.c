@@ -37,7 +37,7 @@ commands: Amount of commands set, commands will be ran in a row
 */
 uint8_t movement[4];
 uint8_t speed[4];
-uint16_t time[4];
+uint8_t time[4];
 uint8_t commands;
 
 //Motor speed variables
@@ -157,7 +157,9 @@ void direcMenu(uint8_t i){
 	waitForNoInput();
 	uint8_t chosen = 0;
 
-	int menuIndex = 0;
+	int menuIndex;
+	if(movement[i] == 0){menuIndex = 0;}
+	else{menuIndex = movement[i] - 1;}
 	char menuItems[4][8] = {"   CW   ", "  CCW   ", "   FW   ", "  REV   "};
 	char arrowUI[] = "<  --  >";
 
@@ -170,22 +172,23 @@ void direcMenu(uint8_t i){
 		LCD_print_String(arrowUI);
 
 		switch(get_input()){
-			case 1: // Left
+			case 0: // Left
 				if(menuIndex == 0){
 					menuIndex = 3;
 				}else{
 					menuIndex--;
 				}
 				break;
-			case 3: // Right
+			case 2: // Right
 				if(menuIndex == 3){
 					menuIndex = 0;
 				}else{
 					menuIndex++;
 				}
 				break;
-			case 2:
+			case 1:
 				chosen = 1;
+				break;
 		}
 	}
 
@@ -196,7 +199,10 @@ void speedMenu(uint8_t i){
 	waitForNoInput();
 	uint8_t chosen = 0;
 
-	int menuIndex = 0;
+	int menuIndex;
+	if (speed[i] == 0){menuIndex = 0;}
+	else{menuIndex = speed[i] - 1;}
+
 	char menuItems[3][8] = {"  SLOW  ", " MEDIUM ", "  FAST  "};
 	char arrowUI[] = "<  --  >";
 
@@ -209,21 +215,21 @@ void speedMenu(uint8_t i){
 		LCD_print_String(arrowUI);
 
 		switch(get_input()){
-			case 1: // Left
+			case 0: // Left
 				if(menuIndex == 0){
 					menuIndex = 2;
 				}else{
 					menuIndex--;
 				}
 				break;
-			case 3: // Right
+			case 2: // Right
 				if(menuIndex == 2){
 					menuIndex = 0;
 				}else{
 					menuIndex++;
 				}
 				break;
-			case 2:
+			case 1:
 				chosen = 1;
 		}
 	}
@@ -233,10 +239,77 @@ void speedMenu(uint8_t i){
 
 void timeMenu(uint8_t i){
 	waitForNoInput();
-}
+	LCD_execute_command(CLEAR_DISPLAY);
+	LCD_execute_command(MOVE_CURSOR_HOME);
+	//Have to reinvent the wheel for this, as there is nothing in the given library to print a decimal value
+	uint8_t tim = time[i]; // Highest duration is 25.5 seconds, though why would you subject yourself to such torture
 
+	uint8_t seld = 0;
+	while(!seld){
+		//Format of number on top LCD would be ' xy.z s '
+		LCD_move_cursor_to_col_row(1, 0);
+		LCD_print_hex4(tim/100);
+		LCD_print_hex4((tim%100)/10);
+		LCD_print_String(".");
+		LCD_print_hex4(tim%10);
+		LCD_move_cursor_to_col_row(6, 0);
+		LCD_print_String("s");
+		LCD_move_cursor_to_col_row(0, 1);
+		LCD_print_String("<  --  >");
+		switch(get_input()){
+			case 0: // Left
+				tim--;
+				break;
+			case 2: // Right
+				tim++;
+				break;
+			case 1: // Center
+				seld = 1;
+		}
+		waitForNoInput();
+	}
+
+	time[i] = tim;
+}
+/*
+	@returns 0 to continue looping, 1 to stop loop
+*/
 uint8_t goMenu(){
 	waitForNoInput();
+	LCD_execute_command(CLEAR_DISPLAY);
+	LCD_execute_command(MOVE_CURSOR_HOME);
+	//Check if all commands are filled
+	if(movement[commands] == 0 || speed[commands] == 0 || time[commands] == 0){
+		LCD_print_String("COMMAND");
+		LCD_move_cursor_to_col_row(0,1);
+		LCD_print_String("NOT SET");
+		get_input();
+		return 0;
+	}
+	// Ask user if they would like to add another command
+	LCD_print_String("ADD COM?");
+	LCD_move_cursor_to_col_row(0,1);
+	LCD_print_String("< NO YES");
+	switch(get_input()){
+		case 0:
+			return 0;
+			break;
+		case 1:
+			if(commands == 3){
+				LCD_execute_command(CLEAR_DISPLAY);
+				LCD_execute_command(MOVE_CURSOR_HOME);
+				LCD_print_String("CANT MAKE 5 COMS");
+				get_input();
+				commands++;
+				return 1;
+			}
+			commands++;
+			return 0;
+			break;
+		case 2:
+			commands++;
+			return 1;
+	}
 	return 0;
 }
 
@@ -244,10 +317,10 @@ uint8_t goMenu(){
 	Creates a UI to set the arrays of movement, speed, and time
 */
 void create_comm(){
-	uint8_t instCreated = 0;
 	uint8_t finUI = 0;
 
 	// Erase all residual commands
+	commands = 0;
 	for(int i = 0; i < 4; i++){
 		movement[i] = 0;
 		speed[i] = 0;
@@ -286,13 +359,13 @@ void create_comm(){
 			case 1: // Center
 				switch(commIndex){
 					case 0:
-						direcMenu(instCreated);
+						direcMenu(commands);
 						break;
 					case 1:
-						speedMenu(instCreated);
+						speedMenu(commands);
 						break;
 					case 2:
-						timeMenu(instCreated);
+						timeMenu(commands);
 						break;
 					case 3:
 						if (goMenu()){ // 0 is continue
@@ -301,8 +374,6 @@ void create_comm(){
 				}
 		}
 	}
-
-	commands = instCreated;
 }
 
 
@@ -423,8 +494,7 @@ int main(){
 		run_motors(1);
 	}
 	*/
-	//create_comm();
+	create_comm();
 	run_commands();
-	
 	return 0;
 }
