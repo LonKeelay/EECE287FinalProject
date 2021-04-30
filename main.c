@@ -18,16 +18,35 @@
 #define Slow 1
 #define Medium 2
 #define Fast 3
+
+//Definition of Motor speed PWM
+//Greater than max duty cycle to avoid hurting the motors
+#define PWM_TOP 120
+
+//Bias definitions- must manually set for own bot
+#define BIAS_L_CCW 0
+#define BIAS_L_CW 0
+#define BIAS_R_CCW 0
+#define BIAS_R_CW 0
+
 /*
 movement: 1=CW, 2=CCW, 3=F, 4=R
 speed: 1=S, 2=M, 3=F
 time: the int is in units of 1/10 s
-commands: Amount of commands set
+commands: Amount of commands set, commands will be ran in a row
 */
 uint8_t movement[4];
 uint8_t speed[4];
 uint8_t time[4];
 uint8_t commands;
+
+//Motor speed variables
+uint8_t duty_cycle = 15;
+uint8_t pwm_counter_L = 0;//must be set to 0 before each new command
+uint8_t pwm_counter_R = 0;//must be set to 0 before each new command
+
+//Time variables
+uint8_t run_timer = 0; //Perhaps increment this each time a delay is ran?
 
 /*
 	Initializes the buttons and makes sure they start out at 0
@@ -39,6 +58,21 @@ void init_buttons(){
 	PORTB |= (1<<4);
 	DDRB &= ~(1<<5);
 	PORTB |= (1<<5);
+}
+
+void init_motors()
+{
+	DDRD |= (1<<5);//PD5: Left, CCW 
+	DDRD &= ~(1<<5);
+
+	DDRD |= (1<<6);//PD6: Left, CW
+	DDRD &= ~(1<<6);
+
+	DDRD |= (1<<3);//PD3: Right, ?
+	DDRD &= ~(1<<3);
+
+	DDRB |= (1<<3);//PB3: Right, ?
+	DDRB &= ~(1<<3);
 }
 
 /*
@@ -342,14 +376,125 @@ void create_comm(){
 	}
 }
 
+
+//These run_motor funcs need to be seperate for two reasons:
+//Too complex to compile into one
+//Will be useful later to account for differnt biases
+//Also it will eventually accept speed[i] values
+
+void run_motor_L_CCW(int cmd, int bias)
+{
+	pwm_counter_L = pwm_counter_L + 1;
+	if(pwm_counter_L >= PWM_TOP){
+		pwm_counter_L = 0;
+	}
+	if(pwm_counter_L < duty_cycle*speed[cmd]){ //speed is set by user
+		PORTD |= (1<<5);
+	}
+	else{
+		PORTD &= ~(1<<5);
+	}
+	_delay_us(10);
+}
+
+void run_motor_L_CW(int cmd, int bias)
+{
+	pwm_counter_L = pwm_counter_L + 1;
+	if(pwm_counter_L >= PWM_TOP){
+		pwm_counter_L = 0;
+	}
+	if(pwm_counter_L < duty_cycle*speed[cmd]){
+		PORTD |= (1<<6);
+	}
+	else{
+		PORTD &= ~(1<<6);
+	}
+	_delay_us(10);
+}
+
+void run_motor_R_CCW(int cmd, int bias)
+{
+	pwm_counter_R = pwm_counter_R + 1;
+	if(pwm_counter_R >= PWM_TOP){
+		pwm_counter_R = 0;
+	}
+	if(pwm_counter_R < duty_cycle*speed[cmd]){
+		PORTD |= (1<<3);
+	}
+	else{
+		PORTD &= ~(1<<3);
+	}
+	_delay_us(10);
+}
+
+void run_motor_R_CW(int cmd, int bias)
+{
+	pwm_counter_R = pwm_counter_R + 1;
+	if(pwm_counter_R >= PWM_TOP){
+		pwm_counter_R = 0;
+	}
+	if(pwm_counter_R < duty_cycle*speed[cmd]){
+		PORTB |= (1<<3);
+	}
+	else{
+		PORTB &= ~(1<<3);
+	}
+	_delay_us(10);
+}
+
+void run_motors(int cmd, int movement)
+{
+	switch(movement)
+	{
+		case 1://CCW
+			run_motor_L_CCW(cmd, BIAS_L_CCW);
+			run_motor_R_CW(cmd, BIAS_R_CW);
+			break;
+		case 2://CW
+			run_motor_L_CW(cmd, BIAS_L_CW);
+			run_motor_R_CCW(cmd, BIAS_R_CCW);
+			break;
+		case 3://FWRD
+			run_motor_L_CW(cmd, BIAS_L_CW);
+			run_motor_R_CW(cmd, BIAS_R_CW);
+			break;
+		case 4://BKWRD
+			run_motor_L_CCW(cmd, BIAS_L_CCW);
+			run_motor_R_CCW(cmd, BIAS_R_CCW);
+			break;
+		default://Error
+			printf("No.");
+			break;
+	}
+}
+
+void run_commands()
+{
+	for(int cmd = 0; cmd < commands; cmd++)//will run thru each command after they are selected
+	{
+		pwm_counter_L = 0;
+		pwm_counter_R = 0;
+		while(run_timer <= time[cmd])
+		{
+			run_motors(cmd, movement[cmd]);
+			run_timer = run_timer + 2; //Could have in run_motors, but that may make them too complex
+		}
+	}
+}
+
+
 int main(){
 
 	init_buttons();
 	init_LCD();
-	while (1)
+	init_motors();
+	/*  Just used to test
+	while(1)
 	{
-		create_comm();
+		run_motors(1);
 	}
-
+	*/
+	create_comm();
+	run_commands();
 	return 0;
 }
