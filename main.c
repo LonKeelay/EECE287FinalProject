@@ -37,7 +37,7 @@ commands: Amount of commands set, commands will be ran in a row
 */
 uint8_t movement[4];
 uint8_t speed[4];
-uint8_t time[4];
+//uint8_t time[4];
 uint8_t commands;
 
 //Motor speed variables
@@ -46,7 +46,11 @@ uint8_t pwm_counter_L = 0;//must be set to 0 before each new command
 uint8_t pwm_counter_R = 0;//must be set to 0 before each new command
 
 //Time variables
-uint8_t run_timer = 0; //Perhaps increment this each time a delay is ran?
+//uint8_t run_timer = 0; //Perhaps increment this each time a delay is ran?
+//Testing speed of bot
+uint16_t run_timer = 0;
+uint16_t time[4];
+
 
 /*
 	Initializes the buttons and makes sure they start out at 0
@@ -63,16 +67,16 @@ void init_buttons(){
 void init_motors()
 {
 	DDRD |= (1<<5);//PD5: Left, CCW 
-	DDRD &= ~(1<<5);
+	PORTD &= ~(1<<5); // was orginally DDRD, same for all others
 
 	DDRD |= (1<<6);//PD6: Left, CW
-	DDRD &= ~(1<<6);
+	PORTD &= ~(1<<6);
 
-	DDRD |= (1<<3);//PD3: Right, ?
-	DDRD &= ~(1<<3);
+	DDRD |= (1<<3);//PD3: Right, CCW
+	PORTD &= ~(1<<3);
 
-	DDRB |= (1<<3);//PB3: Right, ?
-	DDRB &= ~(1<<3);
+	DDRB |= (1<<3);//PB3: Right, CW
+	PORTB &= ~(1<<3);
 }
 
 /*
@@ -128,6 +132,42 @@ void test_comm(){
 
 		LCD_execute_command(MOVE_CURSOR_HOME);
 		LCD_print_String(finStr);
+	}
+}
+
+void test_motors(){
+	unsigned int a_pressed = 0;
+	unsigned int b_pressed = 0;
+	unsigned int c_pressed = 0;
+
+	while(1){
+		if(btn_a){
+			if(a_pressed == 0){
+				PORTD |= (1<<5); 
+				a_pressed = 1;
+			}
+		}else{
+			PORTD &= ~(1<<5);
+			a_pressed = 0;
+		}
+		if(btn_b){
+			if(b_pressed == 0){
+				PORTD |= (1<<6); 
+				b_pressed = 1;
+			}
+		}else{
+			PORTD &= ~(1<<6);
+			b_pressed = 0;
+		}
+		if(btn_c){
+			if(c_pressed == 0){
+				PORTD |= (1<<3); 
+				c_pressed = 1;
+			}
+		}else{
+			PORTD &= ~(1<<3);
+			c_pressed = 0;
+		}
 	}
 }
 
@@ -242,26 +282,31 @@ void timeMenu(uint8_t i){
 	LCD_execute_command(CLEAR_DISPLAY);
 	LCD_execute_command(MOVE_CURSOR_HOME);
 	//Have to reinvent the wheel for this, as there is nothing in the given library to print a decimal value
-	uint8_t tim = time[i]; // Highest duration is 25.5 seconds, though why would you subject yourself to such torture
+	uint16_t tim = time[i]; // Highest duration is 5.5 seconds, including processing time
+	//increments by 1000
 
 	uint8_t seld = 0;
 	while(!seld){
 		//Format of number on top LCD would be ' xy.z s '
 		LCD_move_cursor_to_col_row(1, 0);
-		LCD_print_hex4(tim/100);
+		LCD_print_hex4(tim/100); //unchanged for now, don't quite understand it without testing
 		LCD_print_hex4((tim%100)/10);
 		LCD_print_String(".");
-		LCD_print_hex4(tim%10);
+		LCD_print_hex4(tim%100);
 		LCD_move_cursor_to_col_row(6, 0);
 		LCD_print_String("s");
 		LCD_move_cursor_to_col_row(0, 1);
 		LCD_print_String("<  --  >");
 		switch(get_input()){
 			case 0: // Left
-				tim--;
+				if(tim >= 1000){
+					tim = tim - 1000;
+				}
 				break;
 			case 2: // Right
-				tim++;
+				if(tim <= 49000){
+					tim = tim + 1000;
+				}
 				break;
 			case 1: // Center
 				seld = 1;
@@ -394,7 +439,7 @@ void run_motor_L_CCW(int cmd, int bias)
 	else{
 		PORTD &= ~(1<<5);
 	}
-	_delay_us(10);
+	_delay_us(50);
 }
 
 void run_motor_L_CW(int cmd, int bias)
@@ -409,7 +454,7 @@ void run_motor_L_CW(int cmd, int bias)
 	else{
 		PORTD &= ~(1<<6);
 	}
-	_delay_us(10);
+	_delay_us(50);
 }
 
 void run_motor_R_CCW(int cmd, int bias)
@@ -424,7 +469,7 @@ void run_motor_R_CCW(int cmd, int bias)
 	else{
 		PORTD &= ~(1<<3);
 	}
-	_delay_us(10);
+	_delay_us(50);
 }
 
 void run_motor_R_CW(int cmd, int bias)
@@ -439,7 +484,7 @@ void run_motor_R_CW(int cmd, int bias)
 	else{
 		PORTB &= ~(1<<3);
 	}
-	_delay_us(10);
+	_delay_us(50);
 }
 
 void run_motors(int cmd, int movement)
@@ -470,14 +515,17 @@ void run_motors(int cmd, int movement)
 
 void run_commands()
 {
-	for(int cmd = 0; cmd < commands; cmd++)//will run thru each command after they are selected
+	
+	for(uint8_t cur_cmd = 0; cur_cmd < commands; cur_cmd++)//will run thru each command after they are selected
 	{
+		
 		pwm_counter_L = 0;
 		pwm_counter_R = 0;
-		while(run_timer <= time[cmd])
+		run_timer = 0;
+		while(run_timer <= time[cur_cmd])
 		{
-			run_motors(cmd, movement[cmd]);
-			run_timer = run_timer + 2; //Could have in run_motors, but that may make them too complex
+			run_motors(cur_cmd, movement[cur_cmd]);
+			run_timer = run_timer + 1;
 		}
 	}
 }
@@ -488,13 +536,25 @@ int main(){
 	init_buttons();
 	init_LCD();
 	init_motors();
-	/*  Just used to test
 	while(1)
 	{
-		run_motors(1);
+		create_comm();
+		run_commands();
+	}
+	/*
+	speed[0] = 1;
+	while(1)
+	{
+		run_motors(0,1);
 	}
 	*/
-	create_comm();
+	/*
+	commands = 1;
+	speed[0] = 1;
+	movement[0] = 3;
+	time[0] = 50000;
 	run_commands();
+	*/
+	
 	return 0;
 }
