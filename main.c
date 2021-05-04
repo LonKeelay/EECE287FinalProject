@@ -442,6 +442,11 @@ void run_motor_R_CW(int cmd, int bias)
 	_delay_us(10);
 }
 
+/*
+	Runs the motors in the command
+	@param cmd integer defining the current command index
+	@param movement integer defining the current movement direction (why?)
+*/
 void run_motors(int cmd, int movement)
 {
 	switch(movement)
@@ -463,21 +468,73 @@ void run_motors(int cmd, int movement)
 			run_motor_R_CCW(cmd, BIAS_R_CCW);
 			break;
 		default://Error
-			printf("No.");
+			//printf("No.");
+			LCD_execute_command(CLEAR_DISPLAY);
+			LCD_execute_command(MOVE_CURSOR_HOME);
+			LCD_print_String("ERROR");
 			break;
 	}
+}
+
+void display_command(int cmd){
+	LCD_execute_command(CLEAR_DISPLAY);
+		LCD_execute_command(MOVE_CURSOR_HOME);
+		LCD_print_String("COM ");
+		LCD_print_hex4(cmd + 1);
+		LCD_print_String("/");
+		LCD_print_hex4(commands + 1);
+
+		LCD_move_cursor_to_col_row(0,1);
+		switch(movement[cmd]){
+			case 1:
+				LCD_print_String("CW ");
+				break;
+			case 2:
+				LCD_print_String("CCW ");
+				break;
+			case 3:
+				LCD_print_String("F ");
+				break;
+			case 4:
+				LCD_print_String("R ");
+				break;
+		}
+		switch(speed[cmd]){
+			case 1:
+				LCD_print_String("S ");
+				break;
+			case 2:
+				LCD_print_String("M ");
+				break;
+			case 3:
+				LCD_print_String("F ");
+				break;
+		}
+		LCD_print_hex4(tim/100);
+		LCD_print_hex4((tim%100)/10);
+		LCD_print_String(".");
+		LCD_print_hex4(tim%10);
 }
 
 void run_commands()
 {
 	for(int cmd = 0; cmd < commands; cmd++)//will run thru each command after they are selected
 	{
+		display_command(cmd);
+
+		run_timer = 0;
 		pwm_counter_L = 0;
 		pwm_counter_R = 0;
 		while(run_timer <= time[cmd])
 		{
 			run_motors(cmd, movement[cmd]);
 			run_timer = run_timer + 2; //Could have in run_motors, but that may make them too complex
+			/*
+				Possible fix:
+				have each movement command keep looping for 1/10 second
+				do this by possibly looping the 10 us command 100,000 times
+				every time 1/10 second has passed, increment run timer and compare to time[cmd]
+			*/
 		}
 	}
 }
@@ -488,13 +545,11 @@ int main(){
 	init_buttons();
 	init_LCD();
 	init_motors();
-	/*  Just used to test
-	while(1)
-	{
-		run_motors(1);
+
+	while(1){
+		create_comm();
+		run_commands();
 	}
-	*/
-	create_comm();
-	run_commands();
+
 	return 0;
 }
