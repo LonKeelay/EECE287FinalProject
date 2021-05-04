@@ -532,7 +532,7 @@ void run_commands()
 			/*
 				Possible fix:
 				have each movement command keep looping for 1/10 second
-				do this by possibly looping the 10 us command 100,000 times
+				do this by possibly looping the 10 us command 100,000 times (need to use a uint16)
 				every time 1/10 second has passed, increment run timer and compare to time[cmd]
 			*/
 		}
