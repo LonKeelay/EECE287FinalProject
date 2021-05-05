@@ -25,14 +25,14 @@
 
 //Bias definitions- must manually set for own bot
 #define BIAS_L_CCW 0
-#define BIAS_L_CW 0
-#define BIAS_R_CCW 0
+#define BIAS_L_CW 4
+#define BIAS_R_CCW 5
 #define BIAS_R_CW 0
 
 /*
 movement: 1=CW, 2=CCW, 3=F, 4=R
 speed: 1=S, 2=M, 3=F
-time: the int is in units of 1/10 s
+time: in us, min0 max 50000
 commands: Amount of commands set, commands will be ran in a row
 */
 uint8_t movement[4];
@@ -49,6 +49,9 @@ uint8_t pwm_counter_R = 0;//must be set to 0 before each new command
 uint16_t run_timer = 0; //Increments after each pass of run_motors
 uint8_t time_disp = 0; //Displays set time
 
+uint16_t r_counter = 10;
+uint16_t l_counter = 10;
+
 /*
 	Initializes the buttons and makes sure they start out at 0
 */
@@ -63,17 +66,18 @@ void init_buttons(){
 
 void init_motors()
 {
-	DDRD |= (1<<5);//PD5: Left, CCW 
+	//PD5: Left, CCW 
 	DDRD &= ~(1<<5);
-
-	DDRD |= (1<<6);//PD6: Left, CW
+	PORTD &= ~(1<<5);
+	//PD6: Left, CW
 	DDRD &= ~(1<<6);
-
-	DDRD |= (1<<3);//PD3: Right, CCW
+	PORTD &= ~(1<<6);
+	//PD3: Right, CCW
 	DDRD &= ~(1<<3);
-
-	DDRB |= (1<<3);//PB3: Right, CW
+	PORTD &= ~(1<<3);
+	//PB3: Right, CW
 	DDRB &= ~(1<<3);
+	PORTB &= ~(1<<3);
 }
 
 /*
@@ -330,12 +334,10 @@ uint8_t goMenu(){
 			if(commands == 3){
 				LCD_execute_command(CLEAR_DISPLAY);
 				LCD_execute_command(MOVE_CURSOR_HOME);
-				//LCD_print_String("CANT MAKE 5 COMS");
 				LCD_print_String("4 COMS");
 				LCD_move_cursor_to_col_row(0,1);
 				LCD_print_String("AUTO RUN");
-				_delay_ms(1500);
-				//get_input();
+				_delay_ms(1000);
 				commands++;
 				return 1;
 				break;
@@ -370,7 +372,6 @@ void create_comm(){
 	char commElements[4][8] = {" DIREC  ", " SPEED  ", "  TIME  ", "   GO   "};
 	char arrowUI[] = "<  --  >"; // Fancy bottom arrows
 	
-	// Here comes the spaghet
 	while(!finUI){
 		waitForNoInput();
 		LCD_execute_command(CLEAR_DISPLAY);
@@ -417,11 +418,21 @@ void create_comm(){
 
 void run_motor_L_CCW(int cmd, int bias)
 {
+	int change = 0;
+	if(l_counter < 10)
+	{
+		l_counter = l_counter + 1;
+		change = 0;
+	}
+	else{
+		change = bias;
+		l_counter = 0;
+	}
 	pwm_counter_L = pwm_counter_L + 1;
 	if(pwm_counter_L >= PWM_TOP){
 		pwm_counter_L = 0;
 	}
-	if(pwm_counter_L < duty_cycle*speed[cmd]){ //speed is set by user
+	if(pwm_counter_L < (duty_cycle*speed[cmd])+bias){ //speed is set by user
 		PORTD |= (1<<5);
 	}
 	else{
@@ -432,11 +443,21 @@ void run_motor_L_CCW(int cmd, int bias)
 
 void run_motor_L_CW(int cmd, int bias)
 {
+	int change = 0;
+	if(l_counter < 10)
+	{
+		l_counter = l_counter + 1;
+		change = 0;
+	}
+	else{
+		change = bias;
+		l_counter = 0;
+	}
 	pwm_counter_L = pwm_counter_L + 1;
 	if(pwm_counter_L >= PWM_TOP){
 		pwm_counter_L = 0;
 	}
-	if(pwm_counter_L < duty_cycle*speed[cmd]){
+	if(pwm_counter_L < (duty_cycle*speed[cmd])+change){
 		PORTD |= (1<<6);
 	}
 	else{
@@ -447,11 +468,21 @@ void run_motor_L_CW(int cmd, int bias)
 
 void run_motor_R_CCW(int cmd, int bias)
 {
+	int change = 0;
+	if(r_counter < 10)
+	{
+		r_counter = r_counter + 1;
+		change = 0;
+	}
+	else{
+		change = bias;
+		r_counter = 0;
+	}
 	pwm_counter_R = pwm_counter_R + 1;
 	if(pwm_counter_R >= PWM_TOP){
 		pwm_counter_R = 0;
 	}
-	if(pwm_counter_R < duty_cycle*speed[cmd]){
+	if(pwm_counter_R < (duty_cycle*speed[cmd])+change){
 		PORTD |= (1<<3);
 	}
 	else{
@@ -462,11 +493,21 @@ void run_motor_R_CCW(int cmd, int bias)
 
 void run_motor_R_CW(int cmd, int bias)
 {
+	int change = 0;
+	if(r_counter < 10)
+	{
+		r_counter = r_counter + 1;
+		change = 0;
+	}
+	else{
+		change = bias;
+		r_counter = 0;
+	}
 	pwm_counter_R = pwm_counter_R + 1;
 	if(pwm_counter_R >= PWM_TOP){
 		pwm_counter_R = 0;
 	}
-	if(pwm_counter_R < duty_cycle*speed[cmd]){
+	if(pwm_counter_R < (duty_cycle*speed[cmd])+change){
 		PORTB |= (1<<3);
 	}
 	else{
@@ -559,6 +600,8 @@ void run_commands()
 		run_timer = 0;
 		pwm_counter_L = 0;
 		pwm_counter_R = 0;
+		r_counter = 10;
+		l_counter = 10;
 		while(run_timer <= time[cmd])
 		{
 			run_motors(cmd, movement[cmd]);
@@ -576,17 +619,22 @@ int main(){
 	init_LCD();
 	init_motors();
 	/*
+	//Testing
+	_delay_ms(2000);
 	commands = 1;
 	speed[0] = 1;
 	movement[0] = 3;
-	time[0] = 5000;
+	time[0] = 25000;
 	run_commands();
+	deact_motors();
 	*/
+	
 	while(1){
 		create_comm();
 		run_commands();
 		deact_motors();
 	}
+	
 	
 	return 0;
 }
