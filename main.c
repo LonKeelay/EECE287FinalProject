@@ -37,7 +37,7 @@ commands: Amount of commands set, commands will be ran in a row
 */
 uint8_t movement[4];
 uint8_t speed[4];
-uint8_t time[4];
+uint16_t time[4];
 uint8_t commands;
 
 //Motor speed variables
@@ -46,7 +46,8 @@ uint8_t pwm_counter_L = 0;//must be set to 0 before each new command
 uint8_t pwm_counter_R = 0;//must be set to 0 before each new command
 
 //Time variables
-uint8_t run_timer = 0; //Perhaps increment this each time a delay is ran?
+uint16_t run_timer = 0; //Increments after each pass of run_motors
+uint8_t time_disp = 0; //Displays set time
 
 /*
 	Initializes the buttons and makes sure they start out at 0
@@ -68,10 +69,10 @@ void init_motors()
 	DDRD |= (1<<6);//PD6: Left, CW
 	DDRD &= ~(1<<6);
 
-	DDRD |= (1<<3);//PD3: Right, ?
+	DDRD |= (1<<3);//PD3: Right, CCW
 	DDRD &= ~(1<<3);
 
-	DDRB |= (1<<3);//PB3: Right, ?
+	DDRB |= (1<<3);//PB3: Right, CW
 	DDRB &= ~(1<<3);
 }
 
@@ -83,6 +84,17 @@ void init_LCD(){
 	initialize_LCD_driver();
 	LCD_execute_command(TURN_ON_DISPLAY);
 	LCD_print_String("Group 42");
+}
+
+/*
+	Turns off all motors, prevents glitches where motors keep running after command execution
+*/
+void deact_motors()
+{
+	PORTD &= ~(1<<5);
+	PORTD &= ~(1<<6);
+	PORTD &= ~(1<<3);
+	PORTB &= ~(1<<3);	
 }
 
 /*
@@ -242,26 +254,36 @@ void timeMenu(uint8_t i){
 	LCD_execute_command(CLEAR_DISPLAY);
 	LCD_execute_command(MOVE_CURSOR_HOME);
 	//Have to reinvent the wheel for this, as there is nothing in the given library to print a decimal value
-	uint8_t tim = time[i]; // Highest duration is 25.5 seconds, though why would you subject yourself to such torture
+	
+	uint16_t tim = time[i]; // Highest duration is 5.5s, including processing time(5s without)
+	//Each unit is 100 microseconds + processing, so it requires alot of numbers.
+	//1000 is .1 seconds
+
+	time_disp = 0;//simpler way to mark the time increasing/decreasing, especially now that the nums are in the 1000s
 
 	uint8_t seld = 0;
 	while(!seld){
-		//Format of number on top LCD would be ' xy.z s '
-		LCD_move_cursor_to_col_row(1, 0);
-		LCD_print_hex4(tim/100);
-		LCD_print_hex4((tim%100)/10);
+		//Format of number on top LCD would be ' x.y s '
+		LCD_move_cursor_to_col_row(2, 0);
+		LCD_print_hex4((time_disp)/10);
 		LCD_print_String(".");
-		LCD_print_hex4(tim%10);
+		LCD_print_hex4(time_disp%10);
 		LCD_move_cursor_to_col_row(6, 0);
 		LCD_print_String("s");
 		LCD_move_cursor_to_col_row(0, 1);
 		LCD_print_String("<  --  >");
 		switch(get_input()){
 			case 0: // Left
-				tim--;
+				if(tim >= 1000){//Cannot go below 0s
+					tim = tim - 1000;
+					time_disp = time_disp - 1;
+				}
 				break;
 			case 2: // Right
-				tim++;
+				if(tim <= 49000){//cannot go above 5s
+					tim = tim + 1000;
+					time_disp = time_disp + 1;
+				}
 				break;
 			case 1: // Center
 				seld = 1;
@@ -286,8 +308,18 @@ uint8_t goMenu(){
 		get_input();
 		return 0;
 	}
+
+	//Makes the go menu a bit more understandable
+	LCD_move_cursor_to_col_row(0,0);
+	LCD_print_String("COM MADE"); //Technically hasn't happened yet, but effectively has
+	LCD_move_cursor_to_col_row(0,1);
+	LCD_print_String("< IS DEL");
+	_delay_ms(1500);
+
 	// Ask user if they would like to add another command
-	LCD_print_String("ADD COM?");
+	LCD_execute_command(CLEAR_DISPLAY);
+	LCD_execute_command(MOVE_CURSOR_HOME);
+	LCD_print_String("RUN COM?");
 	LCD_move_cursor_to_col_row(0,1);
 	LCD_print_String("< NO YES");
 	switch(get_input()){
@@ -298,10 +330,15 @@ uint8_t goMenu(){
 			if(commands == 3){
 				LCD_execute_command(CLEAR_DISPLAY);
 				LCD_execute_command(MOVE_CURSOR_HOME);
-				LCD_print_String("CANT MAKE 5 COMS");
-				get_input();
+				//LCD_print_String("CANT MAKE 5 COMS");
+				LCD_print_String("4 COMS");
+				LCD_move_cursor_to_col_row(0,1);
+				LCD_print_String("AUTO RUN");
+				_delay_ms(1500);
+				//get_input();
 				commands++;
 				return 1;
+				break;
 			}
 			commands++;
 			return 0;
@@ -309,6 +346,7 @@ uint8_t goMenu(){
 		case 2:
 			commands++;
 			return 1;
+			break;
 	}
 	return 0;
 }
@@ -377,11 +415,6 @@ void create_comm(){
 }
 
 
-//These run_motor funcs need to be seperate for two reasons:
-//Too complex to compile into one
-//Will be useful later to account for differnt biases
-//Also it will eventually accept speed[i] values
-
 void run_motor_L_CCW(int cmd, int bias)
 {
 	pwm_counter_L = pwm_counter_L + 1;
@@ -394,7 +427,7 @@ void run_motor_L_CCW(int cmd, int bias)
 	else{
 		PORTD &= ~(1<<5);
 	}
-	_delay_us(10);
+	_delay_us(50);
 }
 
 void run_motor_L_CW(int cmd, int bias)
@@ -409,7 +442,7 @@ void run_motor_L_CW(int cmd, int bias)
 	else{
 		PORTD &= ~(1<<6);
 	}
-	_delay_us(10);
+	_delay_us(50);
 }
 
 void run_motor_R_CCW(int cmd, int bias)
@@ -424,7 +457,7 @@ void run_motor_R_CCW(int cmd, int bias)
 	else{
 		PORTD &= ~(1<<3);
 	}
-	_delay_us(10);
+	_delay_us(50);
 }
 
 void run_motor_R_CW(int cmd, int bias)
@@ -439,7 +472,7 @@ void run_motor_R_CW(int cmd, int bias)
 	else{
 		PORTB &= ~(1<<3);
 	}
-	_delay_us(10);
+	_delay_us(50);
 }
 
 /*
@@ -468,7 +501,6 @@ void run_motors(int cmd, int movement)
 			run_motor_R_CCW(cmd, BIAS_R_CCW);
 			break;
 		default://Error
-			//printf("No.");
 			LCD_execute_command(CLEAR_DISPLAY);
 			LCD_execute_command(MOVE_CURSOR_HOME);
 			LCD_print_String("ERROR");
@@ -482,21 +514,21 @@ void display_command(int cmd){
 		LCD_print_String("COM ");
 		LCD_print_hex4(cmd + 1);
 		LCD_print_String("/");
-		LCD_print_hex4(commands + 1);
+		LCD_print_hex4(commands);
 
 		LCD_move_cursor_to_col_row(0,1);
 		switch(movement[cmd]){
 			case 1:
-				LCD_print_String("CW ");
+				LCD_print_String("CW");
 				break;
 			case 2:
-				LCD_print_String("CCW ");
+				LCD_print_String("CCW");
 				break;
 			case 3:
-				LCD_print_String("F ");
+				LCD_print_String("F");
 				break;
 			case 4:
-				LCD_print_String("R ");
+				LCD_print_String("R");
 				break;
 		}
 		switch(speed[cmd]){
@@ -510,10 +542,12 @@ void display_command(int cmd){
 				LCD_print_String("F ");
 				break;
 		}
-		LCD_print_hex4(tim/100);
-		LCD_print_hex4((tim%100)/10);
+		
+		LCD_print_hex4(time_disp/10);
 		LCD_print_String(".");
-		LCD_print_hex4(tim%10);
+		LCD_print_hex4(time_disp%10);
+		LCD_print_String("s");
+		
 }
 
 void run_commands()
@@ -528,14 +562,10 @@ void run_commands()
 		while(run_timer <= time[cmd])
 		{
 			run_motors(cmd, movement[cmd]);
-			run_timer = run_timer + 2; //Could have in run_motors, but that may make them too complex
-			/*
-				Possible fix:
-				have each movement command keep looping for 1/10 second
-				do this by possibly looping the 10 us command 100,000 times (need to use a uint16)
-				every time 1/10 second has passed, increment run timer and compare to time[cmd]
-			*/
+			run_timer = run_timer + 1; //Marks that 100us + processing has passed
+			//100us because both motors run independently for one pass thru run_motors
 		}
+		_delay_us(100);
 	}
 }
 
@@ -545,11 +575,18 @@ int main(){
 	init_buttons();
 	init_LCD();
 	init_motors();
-
+	/*
+	commands = 1;
+	speed[0] = 1;
+	movement[0] = 3;
+	time[0] = 5000;
+	run_commands();
+	*/
 	while(1){
 		create_comm();
 		run_commands();
+		deact_motors();
 	}
-
+	
 	return 0;
 }
