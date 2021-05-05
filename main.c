@@ -45,10 +45,6 @@ uint8_t duty_cycle = 15;
 uint8_t pwm_counter_L = 0;//must be set to 0 before each new command
 uint8_t pwm_counter_R = 0;//must be set to 0 before each new command
 
-//Time variables
-uint16_t run_timer = 0; //Increments after each pass of run_motors
-uint8_t time_disp = 0; //Displays set time
-
 /*
 	Initializes the buttons and makes sure they start out at 0
 */
@@ -63,17 +59,21 @@ void init_buttons(){
 
 void init_motors()
 {
-	DDRD |= (1<<5);//PD5: Left, CCW 
+	//DDRD |= (1<<5);//PD5: Left, CCW 
 	DDRD &= ~(1<<5);
+    PORTD &= ~(1<<5);
 
-	DDRD |= (1<<6);//PD6: Left, CW
+	//DDRD |= (1<<6);//PD6: Left, CW
 	DDRD &= ~(1<<6);
+    PORTD &= ~(1<<6);
 
-	DDRD |= (1<<3);//PD3: Right, CCW
+	//DDRD |= (1<<3);//PD3: Right, CCW
 	DDRD &= ~(1<<3);
+    PORTD &= ~(1<<3);
 
-	DDRB |= (1<<3);//PB3: Right, CW
+	//DDRB |= (1<<3);//PB3: Right, CW
 	DDRB &= ~(1<<3);
+    PORTD &= ~(1<<3);
 }
 
 /*
@@ -255,34 +255,29 @@ void timeMenu(uint8_t i){
 	LCD_execute_command(MOVE_CURSOR_HOME);
 	//Have to reinvent the wheel for this, as there is nothing in the given library to print a decimal value
 	
-	uint16_t tim = time[i]; // Highest duration is 5.5s, including processing time(5s without)
-	//Each unit is 100 microseconds + processing, so it requires alot of numbers.
+	uint16_t tim = time[i];
 	//1000 is .1 seconds
-
-	time_disp = 0;//simpler way to mark the time increasing/decreasing, especially now that the nums are in the 1000s
 
 	uint8_t seld = 0;
 	while(!seld){
 		//Format of number on top LCD would be ' x.y s '
 		LCD_move_cursor_to_col_row(2, 0);
-		LCD_print_hex4((time_disp)/10);
+		LCD_print_hex4(tim/10);
 		LCD_print_String(".");
-		LCD_print_hex4(time_disp%10);
+		LCD_print_hex4(tim%10);
 		LCD_move_cursor_to_col_row(6, 0);
 		LCD_print_String("s");
 		LCD_move_cursor_to_col_row(0, 1);
 		LCD_print_String("<  --  >");
 		switch(get_input()){
 			case 0: // Left
-				if(tim >= 1000){//Cannot go below 0s
-					tim = tim - 1000;
-					time_disp = time_disp - 1;
+				if (tim > 0){
+					tim--;
 				}
 				break;
 			case 2: // Right
-				if(tim <= 49000){//cannot go above 5s
-					tim = tim + 1000;
-					time_disp = time_disp + 1;
+				if (tim < 99){
+					tim++;
 				}
 				break;
 			case 1: // Center
@@ -415,138 +410,135 @@ void create_comm(){
 }
 
 
-void run_motor_L_CCW(int cmd, int bias)
-{
-	pwm_counter_L = pwm_counter_L + 1;
-	if(pwm_counter_L >= PWM_TOP){
-		pwm_counter_L = 0;
-	}
-	if(pwm_counter_L < duty_cycle*speed[cmd]){ //speed is set by user
-		PORTD |= (1<<5);
-	}
-	else{
-		PORTD &= ~(1<<5);
-	}
-	_delay_us(50);
+void motor_L_CW(int bool){
+    if(bool){
+        PORTD |= (1<<5);
+    }else{
+        PORTD &= ~(1<<5);
+    }
 }
 
-void run_motor_L_CW(int cmd, int bias)
-{
-	pwm_counter_L = pwm_counter_L + 1;
-	if(pwm_counter_L >= PWM_TOP){
-		pwm_counter_L = 0;
-	}
-	if(pwm_counter_L < duty_cycle*speed[cmd]){
-		PORTD |= (1<<6);
-	}
-	else{
-		PORTD &= ~(1<<6);
-	}
-	_delay_us(50);
+void motor_L_CCW(int bool){
+    if(bool){
+        PORTD |= (1<<6);
+    }else{
+        PORTD &= ~(1<<6);
+    }
 }
 
-void run_motor_R_CCW(int cmd, int bias)
-{
-	pwm_counter_R = pwm_counter_R + 1;
-	if(pwm_counter_R >= PWM_TOP){
-		pwm_counter_R = 0;
-	}
-	if(pwm_counter_R < duty_cycle*speed[cmd]){
-		PORTD |= (1<<3);
-	}
-	else{
-		PORTD &= ~(1<<3);
-	}
-	_delay_us(50);
+void motor_R_CCW(int bool){
+    if(bool){
+        PORTD |= (1<<3);
+    }else{
+        PORTD &= ~(1<<3);
+    }
 }
 
-void run_motor_R_CW(int cmd, int bias)
-{
-	pwm_counter_R = pwm_counter_R + 1;
-	if(pwm_counter_R >= PWM_TOP){
-		pwm_counter_R = 0;
-	}
-	if(pwm_counter_R < duty_cycle*speed[cmd]){
-		PORTB |= (1<<3);
-	}
-	else{
-		PORTB &= ~(1<<3);
-	}
-	_delay_us(50);
+void motor_R_CW(int bool){
+    if(bool){
+        PORTB |= (1<<3);
+    }else{
+        PORTB &= ~(1<<3);
+    }
+}
+
+void motor_Fwd(int bool){
+    motor_L_CCW(bool);
+    motor_R_CW(bool);
+}
+
+void motor_Rev(int bool){
+    motor_L_CW(bool);
+    motor_R_CCW(bool);
+}
+
+void motor_CW(int bool){
+    motor_L_CCW(bool);
+    motor_R_CCW(bool);
+}
+
+void motor_CCW(int bool){
+    motor_L_CW(bool);
+    motor_R_CW(bool);
+}
+
+void motor_Driver(int mvmt, int bool){
+    switch(mvmt){
+        case Clockwise:
+            motor_CW(bool);
+            break;
+        case CounterClockwise:
+            motor_CCW(bool);
+            break;
+        case Forward:
+            motor_Fwd(bool);
+            break;
+        case Reverse:
+            motor_Rev(bool);
+            break;
+    }
 }
 
 /*
-	Runs the motors in the command
-	@param cmd integer defining the current command index
-	@param movement integer defining the current movement direction (why?)
+    Runs one tenth of a second of movement
 */
-void run_motors(int cmd, int movement)
-{
-	switch(movement)
-	{
-		case 1://CCW
-			run_motor_L_CCW(cmd, BIAS_L_CCW);
-			run_motor_R_CW(cmd, BIAS_R_CW);
-			break;
-		case 2://CW
-			run_motor_L_CW(cmd, BIAS_L_CW);
-			run_motor_R_CCW(cmd, BIAS_R_CCW);
-			break;
-		case 3://FWRD
-			run_motor_L_CW(cmd, BIAS_L_CW);
-			run_motor_R_CW(cmd, BIAS_R_CW);
-			break;
-		case 4://BKWRD
-			run_motor_L_CCW(cmd, BIAS_L_CCW);
-			run_motor_R_CCW(cmd, BIAS_R_CCW);
-			break;
-		default://Error
-			LCD_execute_command(CLEAR_DISPLAY);
-			LCD_execute_command(MOVE_CURSOR_HOME);
-			LCD_print_String("ERROR");
-			break;
-	}
+void one_loop(int mvmt, int spd){
+    for(int i = 0; i < 100; i++){
+        if(i % (Fast+1) > spd){ // hee hoo funky pwm
+            motor_Driver(mvmt, 0);
+        }else{
+            motor_Driver(mvmt, 1);
+        }
+        _delay_ms(1);
+        motor_Driver(mvmt,0);
+    }
+}
+
+void run_com(int mvmt, int spd, int tim){
+    for(int i = 0; i < tim; i++){
+        one_loop(mvmt, spd);
+    }
 }
 
 void display_command(int cmd){
 	LCD_execute_command(CLEAR_DISPLAY);
-		LCD_execute_command(MOVE_CURSOR_HOME);
-		LCD_print_String("COM ");
-		LCD_print_hex4(cmd + 1);
-		LCD_print_String("/");
-		LCD_print_hex4(commands);
+	LCD_execute_command(MOVE_CURSOR_HOME);
+	LCD_print_String("COM ");
+	LCD_print_hex4(cmd + 1);
+	LCD_print_String("/");
+	LCD_print_hex4(commands);
 
-		LCD_move_cursor_to_col_row(0,1);
-		switch(movement[cmd]){
-			case 1:
-				LCD_print_String("CW");
-				break;
-			case 2:
-				LCD_print_String("CCW");
-				break;
-			case 3:
-				LCD_print_String("F");
-				break;
-			case 4:
-				LCD_print_String("R");
-				break;
-		}
-		switch(speed[cmd]){
-			case 1:
-				LCD_print_String("S ");
-				break;
-			case 2:
-				LCD_print_String("M ");
-				break;
-			case 3:
-				LCD_print_String("F ");
-				break;
-		}
-		
-		LCD_print_hex4(time_disp/10);
-		LCD_print_String(".");
-		LCD_print_hex4(time_disp%10);
-		LCD_print_String("s");
+	LCD_move_cursor_to_col_row(0,1);
+	switch(movement[cmd]){
+		case 1:
+			LCD_print_String("CW");
+			break;
+		case 2:
+			LCD_print_String("CCW");
+			break;
+		case 3:
+			LCD_print_String("F");
+			break;
+		case 4:
+			LCD_print_String("R");
+			break;
+	}
+	switch(speed[cmd]){
+		case 1:
+			LCD_print_String("S ");
+			break;
+		case 2:
+			LCD_print_String("M ");
+			break;
+		case 3:
+			LCD_print_String("F ");
+			break;
+	}
+	
+	LCD_print_hex4(time[cmd]/10);
+	LCD_print_String(".");
+	LCD_print_hex4(time[cmd]%10);
+	LCD_print_String("s");
 		
 }
 
@@ -556,16 +548,7 @@ void run_commands()
 	{
 		display_command(cmd);
 
-		run_timer = 0;
-		pwm_counter_L = 0;
-		pwm_counter_R = 0;
-		while(run_timer <= time[cmd])
-		{
-			run_motors(cmd, movement[cmd]);
-			run_timer = run_timer + 1; //Marks that 100us + processing has passed
-			//100us because both motors run independently for one pass thru run_motors
-		}
-		_delay_us(100);
+		run_com(movement[cmd], speed[cmd], time[cmd]);
 	}
 }
 
