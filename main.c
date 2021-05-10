@@ -39,6 +39,8 @@ uint8_t movement[4];
 uint8_t speed[4];
 uint16_t time[4];
 uint8_t commands;
+uint8_t bunkers;
+uint8_t claimed_bunkers;
 
 //Motor speed variables
 uint8_t duty_cycle = 15;
@@ -297,6 +299,40 @@ void timeMenu(uint8_t i){
 
 	time[i] = tim;
 }
+
+void bunkerMenu(uint8_t i){
+	waitForNoInput();
+	LCD_execute_command(CLEAR_DISPLAY);
+	LCD_execute_command(MOVE_CURSOR_HOME);
+
+	uint8_t bunk = bunkers; //Max amt will be 5 bunkers
+	
+	uint8_t seld = 0;
+	while(!seld){
+		LCD_move_cursor_to_col_row(2, 0);
+		LCD_print_hex4(bunk);
+		LCD_print_String(" BNKRS");
+		LCD_print_String("<  --  >");
+		switch(get_input()){
+			case 0: // Left
+				if(bunk >= 1){//Cannot go below 0
+					bunk = bunk - 1;
+				}
+				break;
+			case 2: // Right
+				if(bunk <= 4){//cannot go above 10
+					bunk = bunk + 1;
+				}
+				break;
+			case 1: // Center
+				seld = 1;
+		}
+		waitForNoInput();
+	}
+	bunkers = bunk;
+}
+
+
 /*
 	@returns 0 to continue looping, 1 to stop loop
 */
@@ -305,48 +341,27 @@ uint8_t goMenu(){
 	LCD_execute_command(CLEAR_DISPLAY);
 	LCD_execute_command(MOVE_CURSOR_HOME);
 	//Check if all commands are filled
-	if(movement[commands] == 0 || speed[commands] == 0 || time[commands] == 0){
+	if(speed[0] == 0 || bunkers == 0){
 		LCD_print_String("COMMAND");
 		LCD_move_cursor_to_col_row(0,1);
 		LCD_print_String("NOT SET");
 		get_input();
 		return 0;
 	}
-
-	//Makes the go menu a bit more understandable
-	LCD_move_cursor_to_col_row(0,0);
-	LCD_print_String("COM MADE"); //Technically hasn't happened yet, but effectively has
-	LCD_move_cursor_to_col_row(0,1);
-	LCD_print_String("< IS DEL");
-	_delay_ms(1500);
-
-	// Ask user if they would like to add another command
+	
 	LCD_execute_command(CLEAR_DISPLAY);
 	LCD_execute_command(MOVE_CURSOR_HOME);
 	LCD_print_String("RUN COM?");
 	LCD_move_cursor_to_col_row(0,1);
 	LCD_print_String("< NO YES");
 	switch(get_input()){
-		case 0:
+		case 0://Illusion of choice
 			return 0;
 			break;
 		case 1:
-			if(commands == 3){
-				LCD_execute_command(CLEAR_DISPLAY);
-				LCD_execute_command(MOVE_CURSOR_HOME);
-				LCD_print_String("4 COMS");
-				LCD_move_cursor_to_col_row(0,1);
-				LCD_print_String("AUTO RUN");
-				_delay_ms(1000);
-				commands++;
-				return 1;
-				break;
-			}
-			commands++;
 			return 0;
 			break;
 		case 2:
-			commands++;
 			return 1;
 			break;
 	}
@@ -361,16 +376,13 @@ void create_comm(){
 
 	// Erase all residual commands
 	commands = 0;
-	for(int i = 0; i < 4; i++){
-		movement[i] = 0;
-		speed[i] = 0;
-		time[i] = 0;
-	}
+	speed[0] = 0;
+	bunkers = 0;
 
 	//Initialize variables used for UI
 	int commIndex = 0;
-	char commElements[4][8] = {" DIREC  ", " SPEED  ", "  TIME  ", "   GO   "};
-	char arrowUI[] = "<  --  >"; // Fancy bottom arrows
+	char commElements[3][8] = {" SPEED  ", "  BNKR  ", "   GO   "};
+	char arrowUI[] = "<  --  >"; 
 	
 	while(!finUI){
 		waitForNoInput();
@@ -383,13 +395,13 @@ void create_comm(){
 		switch(get_input()){
 			case 0: // Left
 				if(commIndex == 0){
-					commIndex = 3;
+					commIndex = 2;
 				}else{
 					commIndex--;
 				}
 				break;
 			case 2: // Right
-				if(commIndex == 3){
+				if(commIndex == 2){
 					commIndex = 0;
 				}else{
 					commIndex ++;
@@ -398,15 +410,12 @@ void create_comm(){
 			case 1: // Center
 				switch(commIndex){
 					case 0:
-						direcMenu(commands);
-						break;
-					case 1:
 						speedMenu(commands);
 						break;
-					case 2:
-						timeMenu(commands);
+					case 1:
+						bunkerMenu(commands);
 						break;
-					case 3:
+					case 2:
 						if (goMenu()){ // 0 is continue
 							finUI = 1;
 						}
@@ -432,7 +441,7 @@ void run_motor_L_CCW(int cmd, int bias)
 	if(pwm_counter_L >= PWM_TOP){
 		pwm_counter_L = 0;
 	}
-	if(pwm_counter_L < (duty_cycle*speed[cmd])+bias){ //speed is set by user
+	if(pwm_counter_L < (duty_cycle*speed[cmd])+bias){
 		PORTD |= (1<<5);
 	}
 	else{
@@ -549,29 +558,17 @@ void run_motors(int cmd, int movement)
 	}
 }
 
+void reset_pwm()
+{
+	pwm_counter_L = 0;
+	pwm_counter_R = 0;
+	r_counter = 10;
+	l_counter = 10;
+}
+
 void display_command(int cmd){
 	LCD_execute_command(CLEAR_DISPLAY);
 		LCD_execute_command(MOVE_CURSOR_HOME);
-		LCD_print_String("COM ");
-		LCD_print_hex4(cmd + 1);
-		LCD_print_String("/");
-		LCD_print_hex4(commands);
-
-		LCD_move_cursor_to_col_row(0,1);
-		switch(movement[cmd]){
-			case 1:
-				LCD_print_String("CW");
-				break;
-			case 2:
-				LCD_print_String("CCW");
-				break;
-			case 3:
-				LCD_print_String("F");
-				break;
-			case 4:
-				LCD_print_String("R");
-				break;
-		}
 		switch(speed[cmd]){
 			case 1:
 				LCD_print_String("S ");
@@ -583,13 +580,15 @@ void display_command(int cmd){
 				LCD_print_String("F ");
 				break;
 		}
-		
-		LCD_print_hex4(time_disp/10);
-		LCD_print_String(".");
-		LCD_print_hex4(time_disp%10);
-		LCD_print_String("s");
+		LCD_print_hex4(bunkers);
+		LCD_print_String("BNKR");
+		LCD_move_cursor_to_col_row(0,1);
+		LCD_print_hex4(claimed_bunkers);
+		LCD_print_String(" CAPPED");
 		
 }
+
+
 
 void run_commands()
 {
@@ -597,11 +596,7 @@ void run_commands()
 	{
 		display_command(cmd);
 
-		run_timer = 0;
-		pwm_counter_L = 0;
-		pwm_counter_R = 0;
-		r_counter = 10;
-		l_counter = 10;
+		reset_pwm();
 		while(run_timer <= time[cmd])
 		{
 			run_motors(cmd, movement[cmd]);
