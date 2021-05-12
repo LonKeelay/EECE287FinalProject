@@ -10,6 +10,13 @@
 #define btn_b (~(PINB) & (1<<4))
 #define btn_c (~(PINB) & (1<<5))
 
+//Definitions for buttons
+#define sen_LM (~(PINC) & (1<<0))
+#define sen_LC (~(PINC) & (1<<1))
+#define sen_CM (~(PINC) & (1<<2))
+#define sen_RC (~(PINC) & (1<<3))
+#define sen_RM (~(PINC) & (1<<4))
+
 //Definitions for movement parameters
 #define Clockwise 1
 #define CounterClockwise 2
@@ -92,6 +99,25 @@ void init_LCD(){
 	LCD_print_String("Group 42");
 }
 
+void init_sensors()
+{
+	//LM sensor
+	DDRC &= ~(1<<0);
+	PORTC |= (1<<0);
+	//LC sensor
+	DDRC &= ~(1<<1);
+	PORTC |= (1<<1);
+	//CM sensor
+	DDRC &= ~(1<<2);
+	PORTC |= (1<<2);
+	//RC sensor
+	DDRC &= ~(1<<3);
+	PORTC |= (1<<3);
+	//RM sensor
+	DDRC &= ~(1<<4);
+	PORTC |= (1<<4);
+}
+
 /*
 	Turns off all motors, prevents glitches where motors keep running after command execution
 */
@@ -101,6 +127,74 @@ void deact_motors()
 	PORTD &= ~(1<<6);
 	PORTD &= ~(1<<3);
 	PORTB &= ~(1<<3);	
+}
+
+
+void test_sensors()
+{
+
+	uint8_t LM_pressed = 0;
+	uint8_t LC_pressed = 0;
+	uint8_t CM_pressed = 0;
+	uint8_t RC_pressed = 0;
+	uint8_t RM_pressed = 0;
+	
+	char finStr[] = "     ";
+
+	LCD_execute_command(CLEAR_DISPLAY);
+
+	while(1){
+		if(sen_LM){
+			if(LM_pressed == 0){
+				finStr[0] = '0';
+				LM_pressed = 1;
+			}
+		}else{
+			finStr[0] = ' ';
+			LM_pressed = 0;
+		}
+		if(sen_LC){
+			if(LC_pressed == 0){
+				finStr[1] = '1';
+				LC_pressed = 1;
+			}
+		}else{
+			finStr[1] = ' ';
+			LC_pressed = 0;
+		}
+
+		if(sen_CM){
+			if(CM_pressed == 0){
+				finStr[2] = '2';
+				CM_pressed = 1;
+			}
+		}else{
+			finStr[2] = ' ';
+			CM_pressed = 0;
+		}
+
+		if(sen_RC){
+			if(RC_pressed == 0){
+				finStr[3] = '3';
+				RC_pressed = 1;
+			}
+		}else{
+			finStr[3] = ' ';
+			RC_pressed = 0;
+		}
+		if(sen_RM){
+			if(RM_pressed == 0){
+				finStr[4] = '4';
+				RM_pressed = 1;
+			}
+		}else{
+			finStr[4] = ' ';
+			RM_pressed = 0;
+		}
+
+		LCD_execute_command(MOVE_CURSOR_HOME);
+		LCD_print_String(finStr);
+	}
 }
 
 /*
@@ -320,7 +414,7 @@ void bunkerMenu(uint8_t i){
 				}
 				break;
 			case 2: // Right
-				if(bunk <= 4){//cannot go above 10
+				if(bunk <= 4){//cannot go above 5
 					bunk = bunk + 1;
 				}
 				break;
@@ -592,19 +686,9 @@ void display_command(int cmd){
 
 void run_commands()
 {
-	for(int cmd = 0; cmd < commands; cmd++)//will run thru each command after they are selected
-	{
-		display_command(cmd);
-
-		reset_pwm();
-		while(run_timer <= time[cmd])
-		{
-			run_motors(cmd, movement[cmd]);
-			run_timer = run_timer + 1; //Marks that 100us + processing has passed
-			//100us because both motors run independently for one pass thru run_motors
-		}
-		_delay_us(100);
-	}
+	display_command(cmd);
+	reset_pwm();
+	
 }
 
 
@@ -613,6 +697,9 @@ int main(){
 	init_buttons();
 	init_LCD();
 	init_motors();
+	init_sensors();
+
+	test_sensors();
 	/*
 	//Testing
 	_delay_ms(2000);
@@ -623,13 +710,13 @@ int main(){
 	run_commands();
 	deact_motors();
 	*/
-	
+	/*
 	while(1){
 		create_comm();
 		run_commands();
 		deact_motors();
 	}
-	
+	*/
 	
 	return 0;
 }
