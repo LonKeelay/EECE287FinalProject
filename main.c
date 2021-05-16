@@ -25,6 +25,7 @@
 #define leftBias 0
 #define basePWM 35
 
+
 void init_buttons(){
 	DDRB &= ~(1<<1);
 	PORTB |= (1<<1);
@@ -127,12 +128,14 @@ void motor_R_CCW(int bool){
     }
 }
 
+
 void motor_R_CW(int bool){
     if(bool){
         PORTB |= (1<<3);
     }else{
         PORTB &= ~(1<<3);
     }
+
 }
 
 void motor_Fwd(int boolL, int boolR){
@@ -200,6 +203,7 @@ uint8_t digital_Reflecc(){
     DDRC &= ~(0x1F);
     _delay_us(WhiteDelay);
     return (PINC & 0x1F);
+
 }
 
 void push(){
@@ -297,6 +301,7 @@ int decidSpin(){
         }
     }
     return 0;
+
 }
 
 void turn_around(){
@@ -341,4 +346,5 @@ int main(){
     }
     */
     return 0;
+
 }
