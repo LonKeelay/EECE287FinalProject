@@ -216,15 +216,23 @@ void push(){
 }
 
 void spin(int direc){
+    deact_motors();
     uint8_t clk = 0;
     //Funky PWM, I guess go for 1ms?
     for(int i = 0; i < 200; i++){
-        int lef = ((basePWM + leftBias) - clk > 0);
-        int rig = ((basePWM + rightBias) - clk > 0);
+        int lef = ((basePWM/2 + leftBias) - clk > 0);
+        int rig = ((basePWM/2 + rightBias) - clk > 0);
         clk++;
         motor_Driver(direc, lef, rig);
         _delay_us(1);
         motor_Driver(direc, 0, 0);
+    }
+}
+
+//Scooches the robot forward
+void scooch(){
+    for(int i = 0; i < 10; i++){
+        push();
     }
 }
 
@@ -240,10 +248,6 @@ int decidSpin(){
             case 0b10:
             hard_brake();
             spin(Clockwise);
-            if(digital_Reflecc() == 0b01100){
-                hard_brake();
-                return BUNKER;
-            }
             break;
 
             case 0b10000:
@@ -251,25 +255,18 @@ int decidSpin(){
             case 0b01000:
             hard_brake();
             spin(CounterClockwise);
-            if(digital_Reflecc() == 0b01100){
-                hard_brake();
-                return BUNKER;
-            }
             break;
 
             case 0b110: // 6
-            spin(Clockwise);
-            if(digital_Reflecc() == 0b01100){
-                hard_brake();
+            case 0b1100: // C
+            case 0b01110:
+            scooch();
+            hard_brake();
+            uint8_t buf = digital_Reflecc();
+            if(buf != 0b11111 && (buf & (1<<2)) && !((buf & (1<<4))>>4 && (buf & 1))){ // Make sure robot has not hit wall or corner
                 return BUNKER;
-            }
-            break;
-
-            case 0b01100: //C
-            spin(CounterClockwise);
-            if(digital_Reflecc() == 0b01100){
-                hard_brake();
-                return BUNKER;
+            }else{
+                return WALL;
             }
             break;
 
@@ -282,13 +279,6 @@ int decidSpin(){
             case 0b11110:
             hard_brake();
             return WALL;
-            break;
-
-            case 0b01110:
-            hard_brake();
-            deact_motors();
-            if(digital_Reflecc() == 0b01110){return BUNKER;}
-            else{return WALL;}
             break;
 
             default:
