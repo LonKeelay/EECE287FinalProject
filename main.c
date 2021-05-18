@@ -61,16 +61,17 @@ void init_motors()
     PORTD &= ~(1<<3);
 
 	DDRB &= ~(1<<3);
-    PORTD &= ~(1<<3);
+    PORTB &= ~(1<<3);
 }
 
 void init_buzzer(){
-    DDRB |= (1>>2);
+    DDRB &= ~(1<<2);
+    PORTB &= ~(1<<2);
 }
 
 void tone(int period){
     PORTB |= (1>>2);
-    _delay_ms(1);
+    _delay_ms(1000);
     PORTB &= ~(1>>2);
     _delay_ms(1);
 }
@@ -327,6 +328,7 @@ uint8_t goMenu(){
 	}
 	return 0;
 }
+
 
 void create_comm(){
 	uint8_t finUI = 0;
@@ -613,10 +615,9 @@ void celebrate_win(){//Insert buzzer noise, LCD message, spinning, etc here
 	LCD_print_String("ALL BNKR");
 	LCD_move_cursor_to_col_row(0,1);
 	LCD_print_String("CAPPED!");
-
 }
 
-void reset(){//Reset everything before next run-through
+void reset_var(){//Reset everything before next run-thru
 	claimed_bunkers = 0;
 	bunkers = 0;
 	speed  = 0;
@@ -627,7 +628,8 @@ int main(){
     init_motors();
 	while(1)
 	{
-		reset();
+		reset_var();
+		deact_motors();
 		get_input();
 		create_comm();
 		LCD_execute_command(CLEAR_DISPLAY);
@@ -654,7 +656,6 @@ int main(){
 		_delay_ms(500);//Prevent celebrate_win from getting skipped
 		celebrate_win();
 		get_input();
-		claimed_bunkers = 0;
 	}
 
     /*
