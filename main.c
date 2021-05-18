@@ -271,7 +271,7 @@ void bunkerMenu(){
 	while(!seld){
 		LCD_move_cursor_to_col_row(0, 0);
 		LCD_print_hex4(bunk+1);
-		LCD_print_String("BNKRS");
+		LCD_print_String(" BNKRS");
 		LCD_move_cursor_to_col_row(0, 1);
 		LCD_print_String("<  --  >");
 		switch(get_input()){
@@ -396,7 +396,7 @@ void display_command(){
 				break;
 		}
 		LCD_print_hex4(bunkers);
-		LCD_print_String(" BNKRS");
+		LCD_print_String("BNKRS");
 		LCD_move_cursor_to_col_row(0,1);
 		LCD_print_hex4(claimed_bunkers);
 		LCD_print_String(" CAPPED");
