@@ -566,12 +566,15 @@ int decidSpin(){
             case 0b11:
             case 0b10:
             hard_brake();
-            _delay_ms(100);
+            _delay_ms(300);
             deact_motors();
             while(!(reflecc & (3<<3)) && (reflecc & 3)){
-                stepBack(CounterClockwise);
+                spin(CounterClockwise);
                 reflecc = digital_Reflecc();
                 deact_motors();
+            }
+            if (reflecc == 0){
+                //return BUNKER;
             }
             break;
 
@@ -579,12 +582,15 @@ int decidSpin(){
             case 0b11000:
             case 0b01000:
             hard_brake();
-            _delay_ms(100);
+            _delay_ms(300);
             deact_motors();
             while((reflecc & (3<<3)) && !(reflecc & 3)){
-                stepBack(Clockwise);
+                spin(Clockwise);
                 reflecc = digital_Reflecc();
                 deact_motors();
+            }
+            if (reflecc == 0){
+                //return BUNKER;
             }
             break;
 
@@ -595,24 +601,23 @@ int decidSpin(){
             case 0b00111:
             case 0b11100:
             case 0b11110:
+            case 0b00100:
             hard_brake();
-            _delay_ms(100);
+            _delay_ms(300);
             deact_motors();
             scooch();
             hard_brake();
             reflecc = digital_Reflecc();
-            if(reflecc != 0b11111 && (reflecc & (1<<2)) && !((reflecc & (1<<4))>>4 && (reflecc & 1))){ // Make sure robot has not hit wall or corner
+            if(reflecc != 0b11111 && reflecc != 0b11011 && reflecc != 0b10001){ // Make sure robot has not hit wall or corner
                 return BUNKER;
+            }else{
+                return WALL;
             }
             break;
 
             case 0b10001:
             case 0b11011:
             case 0b11111:
-            //case 0b01111:
-            //case 0b00111:
-            //case 0b11100:
-            //case 0b11110:
             hard_brake();
             deact_motors();
             return WALL;
@@ -635,6 +640,19 @@ void turn_around(){
     for(int i = 0; i < 200; i++){
         spin(Clockwise);
     }
+}
+
+void turn_around_bunk(){
+    deact_motors();
+    while(!digital_Reflecc()){
+        spin(Reverse);
+    }
+    for(int i = 0; i < 255; i++){
+        spin(Clockwise);
+    }
+    hard_brake();
+    _delay_ms(10);
+    deact_motors();
 }
 
 void celebrate_cap(){//Insert buzzer noise, LCD message, spinning, etc here
@@ -667,7 +685,8 @@ int main(){
 		reset_var();
 		deact_motors();
 		get_input();
-		create_comm();
+		//create_comm();
+        bunkers = 1;
 		LCD_execute_command(CLEAR_DISPLAY);
 		while (claimed_bunkers < bunkers)
 		{
@@ -677,6 +696,7 @@ int main(){
 				case BUNKER:
 					LCD_print_String("Bunker");
 					claimed_bunkers =  claimed_bunkers + 1;
+                    turn_around_bunk();
 					celebrate_cap();
 					get_input();
 					break;
