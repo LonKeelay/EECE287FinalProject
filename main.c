@@ -517,12 +517,24 @@ void push(){
     }
 }
 
+void push_full_tilt(){
+    deact_motors();
+    //Funky PWM, I guess go for 1ms?
+    for(int i = 0; i < clkMAX; i++){
+        int lef = ((basePWM*2 + leftBias) - i > 0);
+        int rig = ((basePWM*2 + rightBias) - i > 0);
+        motor_Driver(Forward, lef, rig);
+        _delay_us(1);
+        motor_Driver(Forward, 0, 0);
+    }
+}
+
 void spin(int direc){
     deact_motors();
     //Funky PWM, I guess go for 1ms?
     for(int i = 0; i < clkMAX; i++){
-        int lef = ((basePWM + leftBias) - i > 0);
-        int rig = ((basePWM + rightBias) - i > 0);
+        int lef = ((basePWM*(4/3) + leftBias) - i > 0);
+        int rig = ((basePWM*(4/3) + rightBias) - i > 0);
         motor_Driver(direc, lef, rig);
         _delay_us(1);
         motor_Driver(direc, 0, 0);
@@ -550,7 +562,7 @@ void stepBack(int direc){
 
 //Scooches the robot forward
 void scooch(){
-    for(int i = 0; i < 10; i++){
+    for(int i = 0; i < 20; i++){
         push();
     }
 }
@@ -559,6 +571,7 @@ int decidSpin(){
     while(1){
         deact_motors();
         int reflecc = (int)digital_Reflecc();
+        uint8_t found_wall = 0;
         LCD_execute_command(MOVE_CURSOR_HOME);
         LCD_print_hex8(reflecc);
         switch (reflecc){
@@ -573,9 +586,8 @@ int decidSpin(){
                 reflecc = digital_Reflecc();
                 deact_motors();
             }
-            if (reflecc == 0){
-                //return BUNKER;
-            }
+            scooch();
+            found_wall = 1;
             break;
 
             case 0b10000:
@@ -589,9 +601,8 @@ int decidSpin(){
                 reflecc = digital_Reflecc();
                 deact_motors();
             }
-            if (reflecc == 0){
-                //return BUNKER;
-            }
+            scooch();
+            found_wall = 1;
             break;
 
             case 0b110: // 6
@@ -607,7 +618,9 @@ int decidSpin(){
             deact_motors();
             scooch();
             hard_brake();
+            _delay_ms(1);
             reflecc = digital_Reflecc();
+            deact_motors();
             if(reflecc != 0b11111 && reflecc != 0b11011 && reflecc != 0b10001){ // Make sure robot has not hit wall or corner
                 return BUNKER;
             }else{
@@ -637,7 +650,7 @@ void turn_around(){
     while(!digital_Reflecc()){
         spin(Reverse);
     }
-    for(int i = 0; i < 200; i++){
+    for(int i = 0; i < 150; i++){
         spin(Clockwise);
     }
 }
