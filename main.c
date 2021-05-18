@@ -28,8 +28,8 @@
 
 #define WhiteDelay 180
 
-#define rightBias 8
-#define leftBias 0
+#define rightBias 0
+#define leftBias 1
 #define basePWM 40
 #define clkMAX 255
 
@@ -38,7 +38,7 @@ uint8_t bunkers;
 uint8_t claimed_bunkers;
 //Speed Variable
 uint8_t speed;
-//
+uint8_t pwm_speed;
 
 
 void init_buttons(){
@@ -258,6 +258,7 @@ void speedMenu(){
 		}
 	}
 	speed = menuIndex + 1; //Index is offset by 1 due to 0 meaning no command
+	pwm_speed = 3*menuIndex; //Affects PWM speed
 }
 
 void bunkerMenu(){
@@ -270,7 +271,7 @@ void bunkerMenu(){
 	while(!seld){
 		LCD_move_cursor_to_col_row(0, 0);
 		LCD_print_hex4(bunk+1);
-		LCD_print_String(" BNKRS");
+		LCD_print_String("BNKRS");
 		LCD_move_cursor_to_col_row(0, 1);
 		LCD_print_String("<  --  >");
 		switch(get_input()){
@@ -395,7 +396,7 @@ void display_command(){
 				break;
 		}
 		LCD_print_hex4(bunkers);
-		LCD_print_String("BNKR");
+		LCD_print_String(" BNKRS");
 		LCD_move_cursor_to_col_row(0,1);
 		LCD_print_hex4(claimed_bunkers);
 		LCD_print_String(" CAPPED");
@@ -509,8 +510,8 @@ void push(){
     deact_motors();
     //Funky PWM, I guess go for 1ms?
     for(int i = 0; i < clkMAX; i++){
-        int lef = ((basePWM + leftBias) - i > 0);
-        int rig = ((basePWM + rightBias) - i > 0);
+        int lef = ((basePWM + leftBias + pwm_speed) - i > 0);
+        int rig = ((basePWM + rightBias + pwm_speed) - i > 0);
         motor_Driver(Forward, lef, rig);
         _delay_us(1);
         motor_Driver(Forward, 0, 0);
@@ -521,11 +522,23 @@ void push_full_tilt(){
     deact_motors();
     //Funky PWM, I guess go for 1ms?
     for(int i = 0; i < clkMAX; i++){
-        int lef = ((basePWM*2 + leftBias) - i > 0);
-        int rig = ((basePWM*2 + rightBias) - i > 0);
+        int lef = ((basePWM*2 + leftBias + pwm_speed) - i > 0);
+        int rig = ((basePWM*2 + rightBias + pwm_speed) - i > 0);
         motor_Driver(Forward, lef, rig);
         _delay_us(1);
         motor_Driver(Forward, 0, 0);
+    }
+}
+
+void pull(){
+    deact_motors();
+    //Funky PWM, I guess go for 1ms?
+    for(int i = 0; i < clkMAX; i++){
+        int lef = ((basePWM + leftBias + pwm_speed) - i > 0);
+        int rig = ((basePWM + rightBias + pwm_speed) - i > 0);
+        motor_Driver(Reverse, lef, rig);
+        _delay_us(1);
+        motor_Driver(Reverse, 0, 0);
     }
 }
 
@@ -544,8 +557,8 @@ void spin(int direc){
 void stepBack(int direc){
     deact_motors();
     for(int i = 0; i < clkMAX*5; i++){
-        int lef = ((basePWM + leftBias) - i%clkMAX > 0);
-        int rig = ((basePWM + rightBias) - i%clkMAX > 0);
+        int lef = ((basePWM + leftBias + pwm_speed) - i%clkMAX > 0);
+        int rig = ((basePWM + rightBias + pwm_speed) - i%clkMAX > 0);
         switch (direc){
             case Clockwise:
             motor_Driver(Clockwise, 0, rig);
@@ -560,10 +573,26 @@ void stepBack(int direc){
     }
 }
 
-//Scooches the robot forward
-void scooch(){
-    for(int i = 0; i < 20; i++){
-        push();
+//Slightly moves the robot in the chosen direction
+void scooch(uint8_t dir){
+    for(int i = 0; i < 10; i++){
+        switch (dir)
+		{
+		case Clockwise:
+			spin(Clockwise);
+			break;
+		case CounterClockwise:
+			spin(CounterClockwise);
+			break;
+		case Forward:
+			push();
+			break;
+		case Reverse:
+			pull();
+			break;
+		default:
+			break;
+		}
     }
 }
 
@@ -573,20 +602,23 @@ int decidSpin(){
         int reflecc = (int)digital_Reflecc();
         uint8_t found_wall = 0;
         LCD_execute_command(MOVE_CURSOR_HOME);
-        LCD_print_hex8(reflecc);
+        //LCD_print_hex8(reflecc);
         switch (reflecc){
-            case 0b1:
-            case 0b11:
-            case 0b10:
+            case 0b00001:
+            case 0b00011:
+            case 0b00010:
             hard_brake();
             _delay_ms(300);
             deact_motors();
             while(!(reflecc & (3<<3)) && (reflecc & 3)){
-                spin(CounterClockwise);
+                scooch(CounterClockwise);
                 reflecc = digital_Reflecc();
                 deact_motors();
             }
-            scooch();
+            scooch(Forward);
+			hard_brake();
+			_delay_ms(10);
+			deact_motors();
             found_wall = 1;
             break;
 
@@ -597,31 +629,36 @@ int decidSpin(){
             _delay_ms(300);
             deact_motors();
             while((reflecc & (3<<3)) && !(reflecc & 3)){
-                spin(Clockwise);
+                scooch(Clockwise);
                 reflecc = digital_Reflecc();
                 deact_motors();
             }
-            scooch();
+            scooch(Forward);
+			hard_brake();
+			_delay_ms(10);
+			deact_motors();
             found_wall = 1;
             break;
 
-            case 0b110: // 6
-            case 0b1100: // C
+
+            case 0b00110: // 6
+            case 0b01100: // C
             case 0b01110:
             case 0b01111:
             case 0b00111:
             case 0b11100:
             case 0b11110:
             case 0b00100:
+			case 0b01010:
             hard_brake();
             _delay_ms(300);
             deact_motors();
-            scooch();
+            scooch(Forward);
             hard_brake();
-            _delay_ms(1);
+            _delay_ms(10);
             reflecc = digital_Reflecc();
             deact_motors();
-            if(reflecc != 0b11111 && reflecc != 0b11011 && reflecc != 0b10001){ // Make sure robot has not hit wall or corner
+            if(reflecc != 0b11111 && reflecc != 0b11011 && reflecc != 0b10001 && reflecc != 0b01011 && reflecc != 0b11010 && reflecc != 0b01111 && reflecc != 0b11110){ // Make sure robot has not hit wall or corner
                 return BUNKER;
             }else{
                 return WALL;
@@ -698,8 +735,8 @@ int main(){
 		reset_var();
 		deact_motors();
 		get_input();
-		//create_comm();
-        bunkers = 1;
+		create_comm();
+        //bunkers = 1; //Testing
 		LCD_execute_command(CLEAR_DISPLAY);
 		while (claimed_bunkers < bunkers)
 		{
@@ -707,22 +744,21 @@ int main(){
 			display_command();
 			switch (decidSpin()){
 				case BUNKER:
-					LCD_print_String("Bunker");
 					claimed_bunkers =  claimed_bunkers + 1;
                     turn_around_bunk();
 					celebrate_cap();
 					get_input();
 					break;
 				case WALL:
-					LCD_print_String("Wall  ");
+					LCD_print_String(" Wall");
 					turn_around();
 					break;
 				default:
-					LCD_print_String("Error ");
+					LCD_print_String(" Error");
 					break;
 			}
 		}
-		_delay_ms(500);//Prevent celebrate_win from getting skipped
+		_delay_ms(500);//Prevent celebrate_win from getting skipped by button press
 		celebrate_win();
 		get_input();
 	}
