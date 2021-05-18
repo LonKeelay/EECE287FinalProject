@@ -26,7 +26,7 @@
 #define WALL 1
 #define BUNKER 2
 
-#define WhiteDelay 250
+#define WhiteDelay 180
 
 #define rightBias 8
 #define leftBias 0
@@ -533,8 +533,8 @@ void spin(int direc){
     deact_motors();
     //Funky PWM, I guess go for 1ms?
     for(int i = 0; i < clkMAX; i++){
-        int lef = ((basePWM*(4/3) + leftBias) - i > 0);
-        int rig = ((basePWM*(4/3) + rightBias) - i > 0);
+        int lef = ((basePWM + leftBias) - i > 0);
+        int rig = ((basePWM + rightBias) - i > 0);
         motor_Driver(direc, lef, rig);
         _delay_us(1);
         motor_Driver(direc, 0, 0);
@@ -650,7 +650,7 @@ void turn_around(){
     while(!digital_Reflecc()){
         spin(Reverse);
     }
-    for(int i = 0; i < 150; i++){
+    for(int i = 0; i < 240; i++){
         spin(Clockwise);
     }
 }
