@@ -23,7 +23,8 @@
 
 #define rightBias 8
 #define leftBias 0
-#define basePWM 35
+#define basePWM 40
+#define clkMAX 255
 
 
 void init_buttons(){
@@ -207,12 +208,11 @@ uint8_t digital_Reflecc(){
 }
 
 void push(){
-    uint8_t clk = 0;
+    deact_motors();
     //Funky PWM, I guess go for 1ms?
-    for(int i = 0; i < 200; i++){
-        int lef = ((basePWM + leftBias) - clk > 0);
-        int rig = ((basePWM + rightBias) - clk > 0);
-        clk++;
+    for(int i = 0; i < clkMAX; i++){
+        int lef = ((basePWM + leftBias) - i > 0);
+        int rig = ((basePWM + rightBias) - i > 0);
         motor_Driver(Forward, lef, rig);
         _delay_us(1);
         motor_Driver(Forward, 0, 0);
@@ -221,13 +221,30 @@ void push(){
 
 void spin(int direc){
     deact_motors();
-    uint8_t clk = 0;
     //Funky PWM, I guess go for 1ms?
-    for(int i = 0; i < 200; i++){
-        int lef = ((basePWM/2 + leftBias) - clk > 0);
-        int rig = ((basePWM/2 + rightBias) - clk > 0);
-        clk++;
+    for(int i = 0; i < clkMAX; i++){
+        int lef = ((basePWM + leftBias) - i > 0);
+        int rig = ((basePWM + rightBias) - i > 0);
         motor_Driver(direc, lef, rig);
+        _delay_us(1);
+        motor_Driver(direc, 0, 0);
+    }
+}
+
+void stepBack(int direc){
+    deact_motors();
+    for(int i = 0; i < clkMAX; i++){
+        int lef = ((basePWM + leftBias) - i > 0);
+        int rig = ((basePWM + rightBias) - i > 0);
+        switch (direc){
+            case Clockwise:
+            motor_Driver(Clockwise, 0, rig);
+            break;
+
+            case CounterClockwise:
+            motor_Driver(CounterClockwise, lef, 0);
+            break;
+        }
         _delay_us(1);
         motor_Driver(direc, 0, 0);
     }
@@ -250,38 +267,50 @@ int decidSpin(){
             case 0b1:
             case 0b11:
             case 0b10:
-            hard_brake();
-            spin(Clockwise);
+            reflecc = digital_Reflecc();
+            while(!(reflecc & (3<<3)) && (reflecc & 3)){
+                stepBack(CounterClockwise);
+                reflecc = digital_Reflecc();
+                deact_motors();
+            }
             break;
 
             case 0b10000:
             case 0b11000:
             case 0b01000:
             hard_brake();
-            spin(CounterClockwise);
+            reflecc = digital_Reflecc();
+            while((reflecc & (3<<3)) && !(reflecc & 3)){
+                stepBack(Clockwise);
+                reflecc = digital_Reflecc();
+                deact_motors();
+            }
             break;
 
             case 0b110: // 6
             case 0b1100: // C
             case 0b01110:
+            case 0b01111:
+            case 0b00111:
+            case 0b11100:
+            case 0b11110:
             scooch();
             hard_brake();
-            uint8_t buf = digital_Reflecc();
-            if(buf != 0b11111 && (buf & (1<<2)) && !((buf & (1<<4))>>4 && (buf & 1))){ // Make sure robot has not hit wall or corner
+            reflecc = digital_Reflecc();
+            if(reflecc != 0b11111 && (reflecc & (1<<2)) && !((reflecc & (1<<4))>>4 && (reflecc & 1))){ // Make sure robot has not hit wall or corner
                 return BUNKER;
-            }else{
-                return WALL;
             }
             break;
 
             case 0b10001:
             case 0b11011:
             case 0b11111:
-            case 0b01111:
-            case 0b00111:
-            case 0b11100:
-            case 0b11110:
+            //case 0b01111:
+            //case 0b00111:
+            //case 0b11100:
+            //case 0b11110:
             hard_brake();
+            deact_motors();
             return WALL;
             break;
 
@@ -295,10 +324,11 @@ int decidSpin(){
 }
 
 void turn_around(){
+    deact_motors();
     while(!digital_Reflecc()){
         spin(Reverse);
     }
-    for(int i = 0; i < 50; i++){
+    for(int i = 0; i < 200; i++){
         spin(Clockwise);
     }
 }
