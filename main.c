@@ -233,9 +233,9 @@ void spin(int direc){
 
 void stepBack(int direc){
     deact_motors();
-    for(int i = 0; i < clkMAX; i++){
-        int lef = ((basePWM + leftBias) - i > 0);
-        int rig = ((basePWM + rightBias) - i > 0);
+    for(int i = 0; i < clkMAX*5; i++){
+        int lef = ((basePWM + leftBias) - i%clkMAX > 0);
+        int rig = ((basePWM + rightBias) - i%clkMAX > 0);
         switch (direc){
             case Clockwise:
             motor_Driver(Clockwise, 0, rig);
@@ -267,7 +267,9 @@ int decidSpin(){
             case 0b1:
             case 0b11:
             case 0b10:
-            reflecc = digital_Reflecc();
+            hard_brake();
+            _delay_ms(100);
+            deact_motors();
             while(!(reflecc & (3<<3)) && (reflecc & 3)){
                 stepBack(CounterClockwise);
                 reflecc = digital_Reflecc();
@@ -279,7 +281,8 @@ int decidSpin(){
             case 0b11000:
             case 0b01000:
             hard_brake();
-            reflecc = digital_Reflecc();
+            _delay_ms(100);
+            deact_motors();
             while((reflecc & (3<<3)) && !(reflecc & 3)){
                 stepBack(Clockwise);
                 reflecc = digital_Reflecc();
@@ -294,6 +297,9 @@ int decidSpin(){
             case 0b00111:
             case 0b11100:
             case 0b11110:
+            hard_brake();
+            _delay_ms(100);
+            deact_motors();
             scooch();
             hard_brake();
             reflecc = digital_Reflecc();
