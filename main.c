@@ -5,7 +5,6 @@
 #include "lcd_driver.h"
 #include "port_macros.h"
 
-//Definitions for buttons
 #define btn_a (~(PINB) & (1<<1))
 #define btn_b (~(PINB) & (1<<4))
 #define btn_c (~(PINB) & (1<<5))
@@ -30,7 +29,6 @@ uint8_t bunkers;
 uint8_t claimed_bunkers;
 uint8_t speed;
 uint8_t pwm_speed;
-
 
 void intialize_robot(){
 	//Buttons
@@ -63,7 +61,7 @@ void deact_motors(){
 }
 
 void stop_bot(uint16_t ms){
-	//Hard Break
+	//Hard Brake
 	PORTD |= (1<<5);
 	PORTD |= (1<<6);
 	PORTD |= (1<<3);
@@ -71,8 +69,9 @@ void stop_bot(uint16_t ms){
 	_delay_ms(ms);
 	deact_motors();
 }
+
 /*
-	Gets the button input
+	Delays until user pushes a button
 	@returns 0 if a, 1 if b, 2 if c
 */
 int get_input(){
@@ -123,7 +122,7 @@ void speedMenu(){
 					menuIndex++;
 				}
 				break;
-			case 1:
+			case 1: // Center
 				chosen = 1;
 		}
 	}
@@ -269,7 +268,6 @@ void display_command(){
 		
 }
 
-
 void motor_L_CW(int bool){
     if(bool){
         PORTD |= (1<<5);
@@ -347,11 +345,13 @@ uint8_t digital_reflection(){
     _delay_us(10);
     PORTC &= ~(0x1F);
     DDRC &= ~(0x1F);
+	//delay for enough time for unreflected capacitors to drain
     _delay_us(WhiteDelay);
     return (PINC & 0x1F);
 
 }
 
+// Moves the robot forward for ~clkMAX us
 void push(uint8_t direc){
     deact_motors();
     for(int i = 0; i < clkMAX; i++){
@@ -363,6 +363,7 @@ void push(uint8_t direc){
     }
 }
 
+// Spins the robot in direc direction for ~clkMAX us
 void spin(int direc){
     deact_motors();
     for(int i = 0; i < clkMAX; i++){
@@ -397,6 +398,12 @@ void slight_movement(uint8_t dir){
     }
 }
 
+/*
+	Main function for moving robot and determining if it has reached a wall or bunker
+	@returns 
+	WALL if it has hit a wall, 
+	BUNKER if it has hit a bunker
+*/
 int decidSpin(){
     while(1){
         deact_motors();
@@ -453,7 +460,7 @@ int decidSpin(){
             }
             break;
 
-			//All Sensors Detection
+			//All Sensors/Corner Detection
             case 0b10001:
             case 0b11011:
             case 0b11111:
@@ -532,7 +539,6 @@ int main(){
 					break;
 			}
 		}
-		_delay_ms(500);//Prevent celebrate_win from getting skipped by button press
 		celebrate_win();
 		get_input();
 	}
